@@ -10,7 +10,7 @@ env:
   # CONFIGURATION
   # -------------------------------------------------------
   GCE_INSTANCE: 'web'   # Replace with your VM Name
-  GCE_ZONE: 'us-central1-a'       # Replace with your VM Zone
+  GCE_ZONE: 'us-central1-c'       # Replace with your VM Zone
   SOURCE_DIR: './'                # Use './' for root, or './dist' if building a React/Vue app
   TARGET_DIR: '/var/www/html'     # Standard Nginx web root
   # -------------------------------------------------------
