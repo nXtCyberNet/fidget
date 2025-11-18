@@ -1,0 +1,29 @@
+    - name: Send files to VM
+      env:
+        # Replace these with your actual values or secrets
+        INSTANCE_NAME: 'web'
+        ZONE: 'us-central1-a' 
+        SOURCE_DIR: './'  # The folder locally you want to upload (e.g., ./dist if using React)
+      run: |
+        echo "🚀 Starting deployment to $INSTANCE_NAME..."
+
+        # STEP 1: Clean up previous temp files on the server (just in case)
+        # We use 'quiet' flags to ignore errors if the folder doesn't exist yet
+        gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --command "rm -rf ~/temp-deploy"
+
+        # STEP 2: Upload files to the Home Directory (The Safe Zone)
+        # --recurse: Required to copy directories
+        echo "📦 Uploading files..."
+        gcloud compute scp --recurse $SOURCE_DIR $INSTANCE_NAME:~/temp-deploy --zone=$ZONE
+
+        # STEP 3: Move files to Nginx Root (The Sudo Move)
+        echo "mv Moving files to /var/www/html..."
+        gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --command "\
+          sudo mkdir -p /var/www/html && \
+          sudo cp -r ~/temp-deploy/* /var/www/html/ && \
+          sudo chown -R www-data:www-data /var/www/html && \
+          sudo chmod -R 755 /var/www/html && \
+          sudo systemctl reload nginx && \
+          rm -rf ~/temp-deploy"
+          
+        echo "✅ Deployment Complete!"
