@@ -1,3 +1,13 @@
+github Actions : **[nXtCyberNet/fidget](https://github.com/nXtCyberNet/fidget/blob/main/.github/workflows/main.yml)**.
+
+
+
+
+
+
+
+
+
 ## 🚀 Quick Install & Run
 
 ⚠️ **Only use when needed**
