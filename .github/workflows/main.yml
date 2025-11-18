@@ -1,29 +1,66 @@
-    - name: Send files to VM
-      env:
-        # Replace these with your actual values or secrets
-        INSTANCE_NAME: 'web'
-        ZONE: 'us-central1-a' 
-        SOURCE_DIR: './'  # The folder locally you want to upload (e.g., ./dist if using React)
-      run: |
-        echo "🚀 Starting deployment to $INSTANCE_NAME..."
+name: Deploy to Nginx (GCE)
 
-        # STEP 1: Clean up previous temp files on the server (just in case)
-        # We use 'quiet' flags to ignore errors if the folder doesn't exist yet
-        gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --command "rm -rf ~/temp-deploy"
+on:
+  push:
+    branches:
+      - main
 
-        # STEP 2: Upload files to the Home Directory (The Safe Zone)
-        # --recurse: Required to copy directories
-        echo "📦 Uploading files..."
-        gcloud compute scp --recurse $SOURCE_DIR $INSTANCE_NAME:~/temp-deploy --zone=$ZONE
+env:
+  # -------------------------------------------------------
+  # CONFIGURATION
+  # -------------------------------------------------------
+  GCE_INSTANCE: 'web'   # Replace with your VM Name
+  GCE_ZONE: 'us-central1-a'       # Replace with your VM Zone
+  SOURCE_DIR: './'                # Use './' for root, or './dist' if building a React/Vue app
+  TARGET_DIR: '/var/www/html'     # Standard Nginx web root
+  # -------------------------------------------------------
 
-        # STEP 3: Move files to Nginx Root (The Sudo Move)
-        echo "mv Moving files to /var/www/html..."
-        gcloud compute ssh $INSTANCE_NAME --zone=$ZONE --command "\
-          sudo mkdir -p /var/www/html && \
-          sudo cp -r ~/temp-deploy/* /var/www/html/ && \
-          sudo chown -R www-data:www-data /var/www/html && \
-          sudo chmod -R 755 /var/www/html && \
-          sudo systemctl reload nginx && \
-          rm -rf ~/temp-deploy"
-          
-        echo "✅ Deployment Complete!"
+jobs:
+  deploy-to-vm:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+      # 1. Checkout Code
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # 2. Authenticate with Google Cloud
+      - name: Google Auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.SSH }}'
+
+      # 3. Setup gcloud CLI
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: qwiklabs-gcp-02-a513cc6b7e45 
+
+      # 4. Deploy Strategy (SCP -> SSH Move)
+      - name: Deploy Files
+        run: |
+          echo "🚧 Starting Deployment to $GCE_INSTANCE..."
+
+          # A. Clean up temp folder on VM (Idempotency check)
+          # We use --command to run shell commands remotely
+          gcloud compute ssh $GCE_INSTANCE --zone=$GCE_ZONE --command "rm -rf ~/deploy-temp"
+
+          # B. Upload files to User Home (The only place we have write access initially)
+          echo "📦 Uploading files to temporary storage..."
+          gcloud compute scp --recurse $SOURCE_DIR $GCE_INSTANCE:~/deploy-temp --zone=$GCE_ZONE
+
+          # C. Sudo Move and Restart Nginx
+          # We chain commands with && to ensure they happen in order
+          echo "🚀 Moving files to Nginx root and reloading..."
+          gcloud compute ssh $GCE_INSTANCE --zone=$GCE_ZONE --command "\
+            sudo rm -rf $TARGET_DIR/* && \
+            sudo cp -r ~/deploy-temp/* $TARGET_DIR/ && \
+            sudo chown -R www-data:www-data $TARGET_DIR && \
+            sudo chmod -R 755 $TARGET_DIR && \
+            sudo systemctl reload nginx && \
+            rm -rf ~/deploy-temp"
+
+          echo "✅ Deployment Successful!"
