@@ -18,7 +18,7 @@ body {
     min-height: 100vh;
     overflow: hidden;
     font-family: 'Arial', sans-serif;
-    background: linear-gradient(135deg, #F6FEA1 0%, #F4E87C 50%, #F6FEA1 100%);
+    background: linear-gradient(135deg, #FF00FF 0%, #FFB6FF 50%, #FF00FF 100%);
     position: relative;
 }
 
